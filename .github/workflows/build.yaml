@@ -33,10 +33,10 @@ jobs:
       - uses: laytan/setup-odin@v2
 
       - run: odin version
+        shell: bash
 
-      - run: |
-          mkdir -p out
-          odin build source -target:${{ matrix.target }} -out:out/${{ matrix.output }}
+      - run: odin build source -target:${{ matrix.target }} -out:out/${{ matrix.output }}
+        shell: bash
 
       - uses: actions/upload-artifact@v4
         with:
