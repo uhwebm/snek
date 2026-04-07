@@ -3,7 +3,7 @@ name: Build and Release
 on:
   push:
     tags:
-      - "v*"   # triggers on version tags like v1.0.0
+      - "v*"
 
 jobs:
   build:
@@ -22,7 +22,6 @@ jobs:
             target: darwin_arm64
             output: snek_macos_arm
 
-          # Optional Intel Mac build
           - os: macos-latest
             target: darwin_amd64
             output: snek_macos_intel
@@ -30,31 +29,35 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-      - name: Checkout repo
+      - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install Odin
-        shell: bash
+      - name: Install Odin (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
         run: |
-          set -e
+          Invoke-WebRequest https://github.com/odin-lang/Odin/releases/latest/download/odin-windows-amd64.zip -OutFile odin.zip
+          Expand-Archive odin.zip -DestinationPath .
+          echo "$PWD\odin" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
 
-          if [[ "$RUNNER_OS" == "Windows" ]]; then
-            curl -L https://github.com/odin-lang/Odin/releases/latest/download/odin-windows-amd64.zip -o odin.zip
-            unzip odin.zip
-            echo "$PWD/odin" >> $GITHUB_PATH
+      - name: Install Odin (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          curl -L https://github.com/odin-lang/Odin/releases/latest/download/odin-linux-amd64.tar.gz -o odin.tar.gz
+          tar -xzf odin.tar.gz
+          echo "$PWD/odin-linux-amd64" >> $GITHUB_PATH
 
-          elif [[ "$RUNNER_OS" == "Linux" ]]; then
-            curl -L https://github.com/odin-lang/Odin/releases/latest/download/odin-linux-amd64.tar.gz -o odin.tar.gz
-            tar -xzf odin.tar.gz
-            echo "$PWD/odin-linux-amd64" >> $GITHUB_PATH
+      - name: Install Odin (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          curl -L https://github.com/odin-lang/Odin/releases/latest/download/odin-macos-amd64.tar.gz -o odin.tar.gz
+          tar -xzf odin.tar.gz
+          echo "$PWD/odin-macos-amd64" >> $GITHUB_PATH
 
-          elif [[ "$RUNNER_OS" == "macOS" ]]; then
-            curl -L https://github.com/odin-lang/Odin/releases/latest/download/odin-macos-amd64.tar.gz -o odin.tar.gz
-            tar -xzf odin.tar.gz
-            echo "$PWD/odin-macos-amd64" >> $GITHUB_PATH
-          fi
+      - name: Verify Odin
+        run: odin version
 
-      - name: Build
+      - name: Build binary
         run: |
           mkdir -p out
           odin build source -target:${{ matrix.target }} -out:out/${{ matrix.output }}
@@ -70,12 +73,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Download all artifacts
+      - name: Download artifacts
         uses: actions/download-artifact@v4
         with:
           path: dist
 
-      - name: Create Release
+      - name: Show files (debug)
+        run: ls -R dist
+
+      - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           files: dist/**/*
